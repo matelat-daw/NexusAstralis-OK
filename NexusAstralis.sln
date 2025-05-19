@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36109.1 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NexusAstralis", "NexusAstralis.csproj", "{FBD76D3A-E1B3-4531-9114-419F27E277D8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FBD76D3A-E1B3-4531-9114-419F27E277D8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FBD76D3A-E1B3-4531-9114-419F27E277D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FBD76D3A-E1B3-4531-9114-419F27E277D8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FBD76D3A-E1B3-4531-9114-419F27E277D8}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {2E1DB5AA-7191-4316-8A7D-6C41581510AA}
+	EndGlobalSection
+EndGlobal
