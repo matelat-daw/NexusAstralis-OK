@@ -2,7 +2,7 @@
 
 namespace NexusAstralis.Models.User
 {
-    public class Favorites
+    public class Favorite
     {
         [Key]
         public string UserId { get; set; } = null!;

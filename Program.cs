@@ -115,6 +115,7 @@ builder.Services.AddCors(options =>
     {
         {
             policy.WithOrigins("https://nexus-astralis-2.vercel.app", "https://login-google-rho.vercel.app", "https://external-login-lemon.vercel.app", "http://localhost:4200") // Permitir los origenes de pruebas.
+            //policy.AllowAnyOrigin() // Permitir cualquier origen.
             .AllowAnyHeader()
             .AllowAnyMethod();
         }

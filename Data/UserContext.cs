@@ -7,17 +7,17 @@ namespace NexusAstralis.Data
 {
     public class UserContext(DbContextOptions<UserContext> options) : IdentityDbContext<NexusAstralis.Models.User.NexusUser>(options)
     {
-        public DbSet<Favorites> Favorites { get; set; }
+        public DbSet<Favorite> Favorites { get; set; }
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
 
-            builder.Entity<Favorites>()
+            builder.Entity<Favorite>()
             .HasKey(f => new { f.UserId, f.ConstellationId });
 
-            builder.Entity<Favorites>()
+            builder.Entity<Favorite>()
             .HasOne<NexusUser>()
-            .WithMany(u => u.Favorites)
+            .WithMany(u => u.Favorite)
             .HasForeignKey(f => f.UserId)
             .HasPrincipalKey(u => u.Id);
 

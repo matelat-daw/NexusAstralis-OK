@@ -1,4 +1,5 @@
 ﻿using Google.Apis.Auth;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,7 @@ using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using NexusAstralis.Data;
 using NexusAstralis.Interface;
+using NexusAstralis.Models.Stars;
 using NexusAstralis.Models.User;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -22,6 +24,7 @@ namespace NexusAstralis.Controllers
         private readonly string GoogleClientId = Environment.GetEnvironmentVariable("Google-Client-Id")!; // Reemplaza con tu Client ID.
         private readonly string MicrosoftClientId = Environment.GetEnvironmentVariable("Microsoft-Client-Id")!; // Reemplaza con tu Client ID.
 
+        [EnableCors]
         [HttpPost("GoogleLogin")]
         public async Task<IActionResult> GoogleLogin([FromBody] ExternalLogin request)
         {
@@ -43,6 +46,7 @@ namespace NexusAstralis.Controllers
                 {
                     Message = "Inicio de Sesión Exitoso",
                     Token = new JwtSecurityTokenHandler().WriteToken(localToken),
+                    user.Nick,
                     user.Email,
                     user.Name,
                     user.ProfileImage
@@ -55,6 +59,7 @@ namespace NexusAstralis.Controllers
             }
         }
 
+        [EnableCors]
         [HttpPost("MicrosoftLogin")]
         public async Task<IActionResult> MicrosoftLogin([FromBody] ExternalLogin request)
         {
@@ -107,6 +112,7 @@ namespace NexusAstralis.Controllers
                 {
                     message = "Login Exitoso",
                     Token = new JwtSecurityTokenHandler().WriteToken(localToken),
+                    user.Nick,
                     user.Email,
                     user.Name,
                     user.ProfileImage
@@ -125,12 +131,12 @@ namespace NexusAstralis.Controllers
             {
                 user = new NexusUser
                 {
+                    Nick = "Visitor",
                     UserName = email,
                     Email = email,
                     Name = name,
                     Surname1 = "",
                     PhoneNumber = "",
-                    Bday = DateOnly.FromDateTime(DateTime.Now),
                     EmailConfirmed = true,
                     ProfileImage = picture,
                     PublicProfile = false
@@ -148,28 +154,40 @@ namespace NexusAstralis.Controllers
         public async Task<IActionResult> GetUserId(string id)
         {
             var user = await userManager.Users
-                .Where(u => u.Id == id)
-                .Select(u => new UserInfoDto
-                {
-                    Nick = u.Nick,
-                    Name = u.Name,
-                    Surname1 = u.Surname1,
-                    Surname2 = u.Surname2,
-                    Email = u.Email,
-                    PhoneNumber = u.PhoneNumber,
-                    ProfileImage = u.ProfileImage,
-                    Bday = u.Bday,
-                    About = u.About,
-                    UserLocation = u.UserLocation,
-                    PublicProfile = u.PublicProfile,
-                    Favorites = u.Favorites
-                })
-                .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(u => u.Id == id);
+
             if (user == null)
             {
                 return NotFound("ERROR: Ese Usuario no Existe.");
             }
-            return Ok(user);
+
+            // Obtener favoritos explícitamente
+            var favoriteIds = await context.Favorites
+                .Where(f => f.UserId == id)
+                .Select(f => f.ConstellationId)
+                .ToListAsync();
+
+            var favoriteConstellations = await starsContext.constellations
+                .Where(c => favoriteIds.Contains(c.id))
+                .ToListAsync();
+
+            var userInfo = new UserInfoDto
+            {
+                Nick = user.Nick,
+                Name = user.Name,
+                Surname1 = user.Surname1,
+                Surname2 = user.Surname2,
+                Email = user.Email,
+                PhoneNumber = user.PhoneNumber,
+                ProfileImage = user.ProfileImage,
+                Bday = user.Bday,
+                About = user.About,
+                UserLocation = user.UserLocation,
+                PublicProfile = user.PublicProfile,
+                Favorites = favoriteConstellations
+            };
+
+            return Ok(userInfo);
         }
 
         [HttpGet("Users")]
@@ -213,7 +231,7 @@ namespace NexusAstralis.Controllers
         public async Task<IActionResult> GetUser(string nick)
         {
             var user = await userManager.Users
-            .Include(u => u.Favorites)
+            .Include(u => u.Favorite)
             .FirstOrDefaultAsync(u => u.Nick == nick);
 
             if (user == null)
@@ -221,15 +239,24 @@ namespace NexusAstralis.Controllers
                 return NotFound("ERROR: Ese Usuario no Existe.");
             }
 
-            // Obtener los IDs de las constelaciones favoritas
-            var favoriteConstellationIds = user.Favorites.Select(f => f.ConstellationId).ToList();
+            var favoriteConstellationIds = user.Favorite.Select(f => f.ConstellationId).ToList();
 
-            // Consultar la información de las constelaciones favoritas
             var favoriteConstellations = await starsContext.constellations
                 .Where(c => favoriteConstellationIds.Contains(c.id))
                 .ToListAsync();
 
-            // Puedes proyectar a un DTO si lo prefieres
+            var userComments = await starsContext.Comments
+                .Where(c => c.UserNick == nick)
+                .Include(c => c.Constellation)
+                .Select(c => new
+                {
+                    c.Id,
+                    c.UserNick,
+                    c.ConstellationId,
+                    c.Comment,
+                })
+                .ToListAsync();
+
             var userInfo = new UserInfoDto
             {
                 Nick = user.Nick,
@@ -243,8 +270,8 @@ namespace NexusAstralis.Controllers
                 About = user.About,
                 UserLocation = user.UserLocation,
                 PublicProfile = user.PublicProfile,
-                // Incluye la info de las constelaciones favoritas
-                Constellations = favoriteConstellations
+                Favorites = favoriteConstellations,
+                Comments = userComments
             };
 
             return Ok(userInfo);
@@ -294,7 +321,7 @@ namespace NexusAstralis.Controllers
                 issuer: configuration["JWT:Issuer"],
                 audience: configuration["JWT:Audience"],
                 claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(30),
+                expires: DateTime.UtcNow.AddMinutes(1),
                 signingCredentials: creds);
         }
 
@@ -466,6 +493,11 @@ namespace NexusAstralis.Controllers
         [HttpPost("Logout")]
         public async Task<IActionResult> Logout()
         {
+            var user = await GetUserFromToken();
+            if (user == null)
+            {
+                return NotFound("ERROR: Ese Usuario no Existe.");
+            }
             await signInManager.SignOutAsync();
 
             return Ok("Loged Out.");
@@ -538,7 +570,18 @@ namespace NexusAstralis.Controllers
                 .Select(f => f.ConstellationId)
                 .ToListAsync();
 
-            return Ok(favoriteIds);
+            var favoriteConstellations = await starsContext.constellations
+                .Where(c => favoriteIds.Contains(c.id))
+                .Select(c => new
+                {
+                    c.id,
+                    Nombre = c.latin_name,
+                    Mitologia = c.mythology,
+                    Imagen = c.image_url
+                })
+                .ToListAsync();
+
+            return Ok(favoriteConstellations);
         }
 
         [HttpPost("Favorites")]
@@ -559,7 +602,7 @@ namespace NexusAstralis.Controllers
                 return BadRequest("La constelación ya está en tus favoritos.");
             }
 
-            var favorite = new Favorites
+            var favorite = new Favorite
             {
                 UserId = user.Id,
                 ConstellationId = constellationId
@@ -618,8 +661,8 @@ namespace NexusAstralis.Controllers
                     c.Id,
                     c.UserNick,
                     c.Comment,
-                    ConstellationId = c.ConstellationId,
-                    ConstellationName = c.Constellation.spanish_name,
+                    c.ConstellationId,
+                    ConstellationName = c.Constellation.latin_name,
                     ConstellationImage = c.Constellation.image_url
                 })
                 .ToListAsync();

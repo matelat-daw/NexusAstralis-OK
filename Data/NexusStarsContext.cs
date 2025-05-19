@@ -12,7 +12,7 @@ public partial class NexusStarsContext(DbContextOptions<NexusStarsContext> optio
     public virtual DbSet<Constellations> constellations { get; set; }
 
     public virtual DbSet<Stars> stars { get; set; }
-    //public virtual DbSet<Comments> Comments { get; set; } = default!;
+    public virtual DbSet<Comments> Comments { get; set; } = default!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -54,6 +54,4 @@ public partial class NexusStarsContext(DbContextOptions<NexusStarsContext> optio
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
-
-public DbSet<NexusAstralis.Models.Stars.Comments> Comments { get; set; } = default!;
 }

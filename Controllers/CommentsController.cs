@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NexusAstralis.Data;
 using NexusAstralis.Models.Stars;
@@ -12,33 +7,38 @@ namespace NexusAstralis.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class CommentsController : ControllerBase
+    public class CommentsController(NexusStarsContext context) : ControllerBase
     {
-        private readonly NexusStarsContext _context;
-
-        public CommentsController(NexusStarsContext context)
-        {
-            _context = context;
-        }
 
         // GET: api/Comments
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Comments>>> GetComments()
         {
-            return await _context.Comments.ToListAsync();
+            return await context.Comments.ToListAsync();
         }
 
         // GET: api/Comments/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Comments>> GetComments(int id)
         {
-            var comments = await _context.Comments.FindAsync(id);
+            var comments = await context.Comments.FindAsync(id);
 
             if (comments == null)
             {
                 return NotFound();
             }
 
+            return comments;
+        }
+
+        [HttpGet("Nick/{nick}")]
+        public async Task<ActionResult<IEnumerable<Comments>>> GetComments(string nick)
+        {
+            var comments = await context.Comments.Where(c => c.UserNick == nick).ToListAsync();
+            if (comments == null || comments.Count == 0)
+            {
+                return NotFound();
+            }
             return comments;
         }
 
@@ -52,11 +52,11 @@ namespace NexusAstralis.Controllers
                 return BadRequest();
             }
 
-            _context.Entry(comments).State = EntityState.Modified;
+            context.Entry(comments).State = EntityState.Modified;
 
             try
             {
-                await _context.SaveChangesAsync();
+                await context.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -78,8 +78,8 @@ namespace NexusAstralis.Controllers
         [HttpPost]
         public async Task<ActionResult<Comments>> PostComments(Comments comments)
         {
-            _context.Comments.Add(comments);
-            await _context.SaveChangesAsync();
+            context.Comments.Add(comments);
+            await context.SaveChangesAsync();
 
             return CreatedAtAction("GetComments", new { id = comments.Id }, comments);
         }
@@ -88,21 +88,21 @@ namespace NexusAstralis.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteComments(int id)
         {
-            var comments = await _context.Comments.FindAsync(id);
+            var comments = await context.Comments.FindAsync(id);
             if (comments == null)
             {
                 return NotFound();
             }
 
-            _context.Comments.Remove(comments);
-            await _context.SaveChangesAsync();
+            context.Comments.Remove(comments);
+            await context.SaveChangesAsync();
 
             return NoContent();
         }
 
         private bool CommentsExists(int id)
         {
-            return _context.Comments.Any(e => e.Id == id);
+            return context.Comments.Any(e => e.Id == id);
         }
     }
 }
