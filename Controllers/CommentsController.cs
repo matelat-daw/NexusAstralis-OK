@@ -1,13 +1,15 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NexusAstralis.Data;
-using NexusAstralis.Models.Stars;
+using NexusAstralis.Models.User;
 
 namespace NexusAstralis.Controllers
 {
+    [Authorize(AuthenticationSchemes = "Bearer")]
     [Route("api/[controller]")]
     [ApiController]
-    public class CommentsController(NexusStarsContext context) : ControllerBase
+    public class CommentsController(UserContext context) : ControllerBase
     {
 
         // GET: api/Comments
@@ -31,10 +33,10 @@ namespace NexusAstralis.Controllers
             return comments;
         }
 
-        [HttpGet("Nick/{nick}")]
-        public async Task<ActionResult<IEnumerable<Comments>>> GetComments(string nick)
+        [HttpGet("User/{id}")]
+        public async Task<ActionResult<IEnumerable<Comments>>> GetComments(string id)
         {
-            var comments = await context.Comments.Where(c => c.UserNick == nick).ToListAsync();
+            var comments = await context.Comments.Where(c => c.UserId == id).ToListAsync();
             if (comments == null || comments.Count == 0)
             {
                 return NotFound();

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
+using NexusAstralis.Models.User;
 
 namespace NexusAstralis.Models.Stars;
 
@@ -42,5 +43,4 @@ public partial class Constellations
     [ForeignKey("constellation_id")]
     [InverseProperty("constellation")]
     public virtual ICollection<Stars> star { get; set; } = new List<Stars>();
-    public virtual ICollection<Comments> Comments { get; set; }
 }

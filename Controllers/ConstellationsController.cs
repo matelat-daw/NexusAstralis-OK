@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NexusAstralis.Data;
 using NexusAstralis.Models.Stars;
@@ -11,6 +12,7 @@ namespace NexusAstralis.Controllers
     public class ConstellationsController(NexusStarsContext context) : ControllerBase
     {
 
+        //[AllowAnonymous]
         // GET: api/constellations
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Constellations>>> Getconstellations()
@@ -73,20 +75,6 @@ namespace NexusAstralis.Controllers
             .ToList();
 
                 return Ok(stars);
-        }
-
-        [HttpGet("GetComments/{id}")]
-        public async Task<ActionResult<IEnumerable<Comments>>> GetComments(int id)
-        {
-            var constellations = await context.constellations
-                .Include(c => c.Comments)
-                .FirstOrDefaultAsync(c => c.id == id);
-            if (constellations == null)
-            {
-                return NotFound("Esa Contelación no Existe.");
-            }
-            var comments = constellations.Comments.ToList();
-            return Ok(comments);
         }
 
         // PUT: api/constellations/5

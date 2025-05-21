@@ -171,18 +171,20 @@ namespace NexusAstralis.Migrations
                 name: "Favorites",
                 columns: table => new
                 {
-                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    ConstellationId = table.Column<int>(type: "int", nullable: false)
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ConstellationId = table.Column<int>(type: "int", nullable: false),
+                    NexusUserId = table.Column<string>(type: "nvarchar(450)", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Favorites", x => new { x.UserId, x.ConstellationId });
+                    table.PrimaryKey("PK_Favorites", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Favorites_AspNetUsers_UserId",
-                        column: x => x.UserId,
+                        name: "FK_Favorites_AspNetUsers_NexusUserId",
+                        column: x => x.NexusUserId,
                         principalTable: "AspNetUsers",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        principalColumn: "Id");
                 });
 
             migrationBuilder.InsertData(
@@ -190,9 +192,9 @@ namespace NexusAstralis.Migrations
                 columns: new[] { "Id", "ConcurrencyStamp", "Name", "NormalizedName" },
                 values: new object[,]
                 {
-                    { "52c2d3b1-5cee-4355-ad1e-a50a41cb20c8", null, "Basic", "BASIC" },
-                    { "cfcb8b56-67f6-4732-b1e8-3f05855f880c", null, "Premium", "PREMIUM" },
-                    { "f0d74b09-3e58-4b15-a1c8-34bd189a8531", null, "Admin", "ADMIN" }
+                    { "0f7c852c-cdcd-4124-8d4b-479103876bd7", null, "Admin", "ADMIN" },
+                    { "3f01bc4c-58fb-4115-a7b5-f40c5556e08a", null, "Basic", "BASIC" },
+                    { "addd5b19-cf5d-4541-b3ba-69cc25231066", null, "Premium", "PREMIUM" }
                 });
 
             migrationBuilder.InsertData(
@@ -200,9 +202,9 @@ namespace NexusAstralis.Migrations
                 columns: new[] { "Id", "About", "AccessFailedCount", "Bday", "ConcurrencyStamp", "Email", "EmailConfirmed", "LockoutEnabled", "LockoutEnd", "Name", "Nick", "NormalizedEmail", "NormalizedUserName", "PasswordHash", "PhoneNumber", "PhoneNumberConfirmed", "ProfileImage", "PublicProfile", "SecurityStamp", "Surname1", "Surname2", "TwoFactorEnabled", "UserLocation", "UserName" },
                 values: new object[,]
                 {
-                    { "3a9f5e5a-a46f-4016-94b3-b2db662e6540", null, 0, new DateOnly(2001, 1, 3), "b781c472-9abc-4d4d-96bb-7b619ca9bc4b", "patrickmurphygon@gmail.com", true, false, null, "Patrick Edward", "PatrokWanzana", "PATRICKMURPHYGON@GMAIL.COM", "PATRICKMURPHYGON@GMAIL.COM", "AQAAAAIAAYagAAAAEC6gZZgsMfpsfKonOAJcVLv7GU72qCClN+5s2xlGLqP0PA7hxctjDOmDzMuTQrEweA==", "634547833", false, "/imgs/profile/Patrokwanzana/Patrick.jpg", false, "c327a1cb-dcc8-4d4b-8df1-92f430a401d4", "Murphy", "González", false, null, "patrickmurphygon@gmail.com" },
-                    { "e656ebbd-c5cd-4f64-b5e9-3584b0361ec0", null, 0, new DateOnly(1995, 7, 15), "3fce5c56-6a36-41f4-ac8e-c0266f11e48b", "ledesma.leslie@gmail.com", true, false, null, "Leslie Ann", "Mae", "LEDESMA.LESLIE@GMAIL.COM", "LEDESMA.LESLIE@GMAIL.COM", "AQAAAAIAAYagAAAAEOJX7ckV9r9Bxfxa9X4omRcPiEcvY6GGPL5L4flt4UAbkzed1KpSYzYR262JGShnDA==", "644388160", false, "/imgs/profile/Mae/Leslie.jpg", false, "453c64ae-8aee-4944-99fc-d7902eb761c9", "Ledesma", "Lara", false, null, "ledesma.leslie@gmail.com" },
-                    { "fa0d1124-2c52-4e36-96e4-6eac818cfef5", null, 0, new DateOnly(1968, 4, 5), "8c029716-99d8-4c44-be07-cdfede1a6fad", "cesarmatelat@gmail.com", true, false, null, "César Osvaldo", "Orions@68", "CESARMATELAT@GMAIL.COM", "CESARMATELAT@GMAIL.COM", "AQAAAAIAAYagAAAAEEezH6THosm0nIFzBUNIjV5X3ux8qrE9Z0GNH88AqdlgRckZcQ7DsdIVxTSMzoB+zA==", "664774821", false, "/imgs/profile/Orions@68/profile.jpg", false, "8d98ad82-3304-40f3-8397-0f05f2a5a74c", "Matelat", "Borneo", false, null, "cesarmatelat@gmail.com" }
+                    { "0315f6dd-7619-4f64-ac56-a2781ad70942", null, 0, new DateOnly(1995, 7, 15), "392a7b02-abde-44aa-9e6a-13674a6390d9", "ledesma.leslie@gmail.com", true, false, null, "Leslie Ann", "Mae", "LEDESMA.LESLIE@GMAIL.COM", "LEDESMA.LESLIE@GMAIL.COM", "AQAAAAIAAYagAAAAEBV+lI2zw9q3+aXRIYV7L/tRzlh1pHb+bbZwArTMXfUH1w/sYNHQZf/dpC6+h2pEFA==", "644388160", false, "/imgs/profile/Mae/Leslie.jpg", false, "f83a3073-f77c-45bf-b268-01f19912f8ea", "Ledesma", "Lara", false, null, "ledesma.leslie@gmail.com" },
+                    { "64da4748-ba5e-4c35-93ef-9e6f1728f0aa", null, 0, new DateOnly(2001, 1, 3), "e0f19457-e3e2-4c51-8f75-b3d596718cfe", "patrickmurphygon@gmail.com", true, false, null, "Patrick Edward", "PatrokWanzana", "PATRICKMURPHYGON@GMAIL.COM", "PATRICKMURPHYGON@GMAIL.COM", "AQAAAAIAAYagAAAAEBzOlPhT9gEuujHFUhj49zekL8z9wpsk2AAWKhx68CmqjmYwNt1zVI6Kn4ckikC7oA==", "634547833", false, "/imgs/profile/Patrokwanzana/Patrick.jpg", false, "3019317c-2504-42a3-a7e8-855857b9a9ac", "Murphy", "González", false, null, "patrickmurphygon@gmail.com" },
+                    { "9d847551-dd45-4f2f-a0d1-2525043bd5db", null, 0, new DateOnly(1968, 4, 5), "9a7ce0eb-4401-425b-a0ad-aab7d2baa47e", "cesarmatelat@gmail.com", true, false, null, "César Osvaldo", "Orions@68", "CESARMATELAT@GMAIL.COM", "CESARMATELAT@GMAIL.COM", "AQAAAAIAAYagAAAAECO/+pkaGzk/YY4yrkOVIiNcpjhqe0tQ/EqE8X91+AoSqpbZV3Vj5yP2HxCdMhKAYQ==", "664774821", false, "/imgs/profile/Orions@68/profile.jpg", false, "1d812cd3-2b6e-4c35-b542-a74d6018a22c", "Matelat", "Borneo", false, null, "cesarmatelat@gmail.com" }
                 });
 
             migrationBuilder.InsertData(
@@ -210,9 +212,9 @@ namespace NexusAstralis.Migrations
                 columns: new[] { "RoleId", "UserId" },
                 values: new object[,]
                 {
-                    { "f0d74b09-3e58-4b15-a1c8-34bd189a8531", "3a9f5e5a-a46f-4016-94b3-b2db662e6540" },
-                    { "f0d74b09-3e58-4b15-a1c8-34bd189a8531", "e656ebbd-c5cd-4f64-b5e9-3584b0361ec0" },
-                    { "f0d74b09-3e58-4b15-a1c8-34bd189a8531", "fa0d1124-2c52-4e36-96e4-6eac818cfef5" }
+                    { "0f7c852c-cdcd-4124-8d4b-479103876bd7", "0315f6dd-7619-4f64-ac56-a2781ad70942" },
+                    { "0f7c852c-cdcd-4124-8d4b-479103876bd7", "64da4748-ba5e-4c35-93ef-9e6f1728f0aa" },
+                    { "0f7c852c-cdcd-4124-8d4b-479103876bd7", "9d847551-dd45-4f2f-a0d1-2525043bd5db" }
                 });
 
             migrationBuilder.CreateIndex(
@@ -248,11 +250,22 @@ namespace NexusAstralis.Migrations
                 column: "NormalizedEmail");
 
             migrationBuilder.CreateIndex(
+                name: "IX_AspNetUsers_Nick",
+                table: "AspNetUsers",
+                column: "Nick",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "UserNameIndex",
                 table: "AspNetUsers",
                 column: "NormalizedUserName",
                 unique: true,
                 filter: "[NormalizedUserName] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Favorites_NexusUserId",
+                table: "Favorites",
+                column: "NexusUserId");
         }
 
         /// <inheritdoc />

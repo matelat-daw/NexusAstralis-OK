@@ -5,24 +5,16 @@ using NexusAstralis.Models.User;
 
 namespace NexusAstralis.Data
 {
-    public class UserContext(DbContextOptions<UserContext> options) : IdentityDbContext<NexusAstralis.Models.User.NexusUser>(options)
+    public class UserContext(DbContextOptions<UserContext> options) : IdentityDbContext<NexusUser>(options)
     {
-        public DbSet<Favorite> Favorites { get; set; }
+        public virtual DbSet<Favorites> Favorites { get; set; } = default!;
+        public virtual DbSet<Comments> Comments { get; set; } = default!;
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
 
-            builder.Entity<Favorite>()
-            .HasKey(f => new { f.UserId, f.ConstellationId });
-
-            builder.Entity<Favorite>()
-            .HasOne<NexusUser>()
-            .WithMany(u => u.Favorite)
-            .HasForeignKey(f => f.UserId)
-            .HasPrincipalKey(u => u.Id);
-
             // USERS SEEDING
-            List<Models.User.NexusUser> users =
+            List<NexusUser> users =
             [
                 new()
                 {
@@ -79,9 +71,9 @@ namespace NexusAstralis.Data
                     PublicProfile = false
                 }
             ];
-            builder.Entity<Models.User.NexusUser>().HasData(users);
+            builder.Entity<NexusUser>().HasData(users);
             // PASSWORD HASH
-            var passwordHasher = new PasswordHasher<Models.User.NexusUser>();
+            var passwordHasher = new PasswordHasher<NexusUser>();
             users[0].PasswordHash = passwordHasher.HashPassword(users[0], "Leslie@Leader");
             users[1].PasswordHash = passwordHasher.HashPassword(users[1], "Patrick@Coleader");
             users[2].PasswordHash = passwordHasher.HashPassword(users[2], "Cesar@Peon");

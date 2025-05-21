@@ -12,8 +12,8 @@ using NexusAstralis.Data;
 namespace NexusAstralis.Migrations
 {
     [DbContext(typeof(UserContext))]
-    [Migration("20250518123649_InitialUsers")]
-    partial class InitialUsers
+    [Migration("20250521193223_InitialFavorites")]
+    partial class InitialFavorites
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -54,19 +54,19 @@ namespace NexusAstralis.Migrations
                     b.HasData(
                         new
                         {
-                            Id = "52c2d3b1-5cee-4355-ad1e-a50a41cb20c8",
+                            Id = "4b5c011e-6fc5-40e9-bc73-1b9c106f2461",
                             Name = "Basic",
                             NormalizedName = "BASIC"
                         },
                         new
                         {
-                            Id = "cfcb8b56-67f6-4732-b1e8-3f05855f880c",
+                            Id = "43b86b23-88ce-45b2-aa32-2e12f6997b9c",
                             Name = "Premium",
                             NormalizedName = "PREMIUM"
                         },
                         new
                         {
-                            Id = "f0d74b09-3e58-4b15-a1c8-34bd189a8531",
+                            Id = "f354b3e1-1d17-4b58-b0ea-a5567e75e7bd",
                             Name = "Admin",
                             NormalizedName = "ADMIN"
                         });
@@ -161,18 +161,18 @@ namespace NexusAstralis.Migrations
                     b.HasData(
                         new
                         {
-                            UserId = "e656ebbd-c5cd-4f64-b5e9-3584b0361ec0",
-                            RoleId = "f0d74b09-3e58-4b15-a1c8-34bd189a8531"
+                            UserId = "e3c4d687-68f2-4887-b3fc-b3322dc4a2de",
+                            RoleId = "f354b3e1-1d17-4b58-b0ea-a5567e75e7bd"
                         },
                         new
                         {
-                            UserId = "3a9f5e5a-a46f-4016-94b3-b2db662e6540",
-                            RoleId = "f0d74b09-3e58-4b15-a1c8-34bd189a8531"
+                            UserId = "45dc1c95-a843-459b-977c-bb16bb46fde8",
+                            RoleId = "f354b3e1-1d17-4b58-b0ea-a5567e75e7bd"
                         },
                         new
                         {
-                            UserId = "fa0d1124-2c52-4e36-96e4-6eac818cfef5",
-                            RoleId = "f0d74b09-3e58-4b15-a1c8-34bd189a8531"
+                            UserId = "66ba44e5-d813-4add-ab10-39c46036692d",
+                            RoleId = "f354b3e1-1d17-4b58-b0ea-a5567e75e7bd"
                         });
                 });
 
@@ -195,17 +195,53 @@ namespace NexusAstralis.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("NexusAstralis.Models.User.Favorites", b =>
+            modelBuilder.Entity("NexusAstralis.Models.User.Comments", b =>
                 {
-                    b.Property<string>("UserId")
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Comment")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("ConstellationId")
                         .HasColumnType("int");
 
-                    b.HasKey("UserId", "ConstellationId");
+                    b.Property<string>("UserId")
+                        .HasColumnType("nvarchar(450)");
 
-                    b.ToTable("Favorites");
+                    b.Property<string>("UserNick")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Comments");
+                });
+
+            modelBuilder.Entity("NexusAstralis.Models.User.Favorite", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ConstellationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Favorite");
                 });
 
             modelBuilder.Entity("NexusAstralis.Models.User.NexusUser", b =>
@@ -309,10 +345,10 @@ namespace NexusAstralis.Migrations
                     b.HasData(
                         new
                         {
-                            Id = "e656ebbd-c5cd-4f64-b5e9-3584b0361ec0",
+                            Id = "e3c4d687-68f2-4887-b3fc-b3322dc4a2de",
                             AccessFailedCount = 0,
                             Bday = new DateOnly(1995, 7, 15),
-                            ConcurrencyStamp = "3fce5c56-6a36-41f4-ac8e-c0266f11e48b",
+                            ConcurrencyStamp = "5d164cce-1eee-4fa1-a3de-410ea2657638",
                             Email = "ledesma.leslie@gmail.com",
                             EmailConfirmed = true,
                             LockoutEnabled = false,
@@ -320,12 +356,12 @@ namespace NexusAstralis.Migrations
                             Nick = "Mae",
                             NormalizedEmail = "LEDESMA.LESLIE@GMAIL.COM",
                             NormalizedUserName = "LEDESMA.LESLIE@GMAIL.COM",
-                            PasswordHash = "AQAAAAIAAYagAAAAEOJX7ckV9r9Bxfxa9X4omRcPiEcvY6GGPL5L4flt4UAbkzed1KpSYzYR262JGShnDA==",
+                            PasswordHash = "AQAAAAIAAYagAAAAEEpqHHprGkmag4ZxYdLYUPxGOjT/wKfq1z4iRX29eiHGl1+bZ4ogxz4SlFBhVrB94A==",
                             PhoneNumber = "644388160",
                             PhoneNumberConfirmed = false,
                             ProfileImage = "/imgs/profile/Mae/Leslie.jpg",
                             PublicProfile = false,
-                            SecurityStamp = "453c64ae-8aee-4944-99fc-d7902eb761c9",
+                            SecurityStamp = "8b5129ba-871e-4c8a-bdfe-a5aa0a331b03",
                             Surname1 = "Ledesma",
                             Surname2 = "Lara",
                             TwoFactorEnabled = false,
@@ -333,10 +369,10 @@ namespace NexusAstralis.Migrations
                         },
                         new
                         {
-                            Id = "3a9f5e5a-a46f-4016-94b3-b2db662e6540",
+                            Id = "45dc1c95-a843-459b-977c-bb16bb46fde8",
                             AccessFailedCount = 0,
                             Bday = new DateOnly(2001, 1, 3),
-                            ConcurrencyStamp = "b781c472-9abc-4d4d-96bb-7b619ca9bc4b",
+                            ConcurrencyStamp = "fc802ad9-e724-49d6-97be-1b69f1948fa7",
                             Email = "patrickmurphygon@gmail.com",
                             EmailConfirmed = true,
                             LockoutEnabled = false,
@@ -344,12 +380,12 @@ namespace NexusAstralis.Migrations
                             Nick = "PatrokWanzana",
                             NormalizedEmail = "PATRICKMURPHYGON@GMAIL.COM",
                             NormalizedUserName = "PATRICKMURPHYGON@GMAIL.COM",
-                            PasswordHash = "AQAAAAIAAYagAAAAEC6gZZgsMfpsfKonOAJcVLv7GU72qCClN+5s2xlGLqP0PA7hxctjDOmDzMuTQrEweA==",
+                            PasswordHash = "AQAAAAIAAYagAAAAELhVKQm9/zs8mjM90Q5a4TrPFjQocxbZucuIpTZeRjRgmoK4FqpoDCx/4wFY9qbQlg==",
                             PhoneNumber = "634547833",
                             PhoneNumberConfirmed = false,
                             ProfileImage = "/imgs/profile/Patrokwanzana/Patrick.jpg",
                             PublicProfile = false,
-                            SecurityStamp = "c327a1cb-dcc8-4d4b-8df1-92f430a401d4",
+                            SecurityStamp = "3b68efd3-1042-4813-ac15-b549fa218ba6",
                             Surname1 = "Murphy",
                             Surname2 = "González",
                             TwoFactorEnabled = false,
@@ -357,10 +393,10 @@ namespace NexusAstralis.Migrations
                         },
                         new
                         {
-                            Id = "fa0d1124-2c52-4e36-96e4-6eac818cfef5",
+                            Id = "66ba44e5-d813-4add-ab10-39c46036692d",
                             AccessFailedCount = 0,
                             Bday = new DateOnly(1968, 4, 5),
-                            ConcurrencyStamp = "8c029716-99d8-4c44-be07-cdfede1a6fad",
+                            ConcurrencyStamp = "0b93881d-2c5e-4841-8a3f-3dc0b7280c8a",
                             Email = "cesarmatelat@gmail.com",
                             EmailConfirmed = true,
                             LockoutEnabled = false,
@@ -368,12 +404,12 @@ namespace NexusAstralis.Migrations
                             Nick = "Orions@68",
                             NormalizedEmail = "CESARMATELAT@GMAIL.COM",
                             NormalizedUserName = "CESARMATELAT@GMAIL.COM",
-                            PasswordHash = "AQAAAAIAAYagAAAAEEezH6THosm0nIFzBUNIjV5X3ux8qrE9Z0GNH88AqdlgRckZcQ7DsdIVxTSMzoB+zA==",
+                            PasswordHash = "AQAAAAIAAYagAAAAEAhf04WJWunpQ88W4LTnJqGuw+7X236/XcXIucAuMHGpx1UXh0kuPUb1PpzhFIDsKw==",
                             PhoneNumber = "664774821",
                             PhoneNumberConfirmed = false,
                             ProfileImage = "/imgs/profile/Orions@68/profile.jpg",
                             PublicProfile = false,
-                            SecurityStamp = "8d98ad82-3304-40f3-8397-0f05f2a5a74c",
+                            SecurityStamp = "9266cb0a-541c-4748-8862-c6c350ba9ecb",
                             Surname1 = "Matelat",
                             Surname2 = "Borneo",
                             TwoFactorEnabled = false,
@@ -432,17 +468,30 @@ namespace NexusAstralis.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("NexusAstralis.Models.User.Favorites", b =>
+            modelBuilder.Entity("NexusAstralis.Models.User.Comments", b =>
                 {
-                    b.HasOne("NexusAstralis.Models.User.NexusUser", null)
+                    b.HasOne("NexusAstralis.Models.User.NexusUser", "User")
+                        .WithMany("Comments")
+                        .HasForeignKey("UserId");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("NexusAstralis.Models.User.Favorite", b =>
+                {
+                    b.HasOne("NexusAstralis.Models.User.NexusUser", "User")
                         .WithMany("Favorites")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("NexusAstralis.Models.User.NexusUser", b =>
                 {
+                    b.Navigation("Comments");
+
                     b.Navigation("Favorites");
                 });
 #pragma warning restore 612, 618

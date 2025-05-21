@@ -1,156 +1,19 @@
-﻿using Google.Apis.Auth;
-using Microsoft.AspNetCore.Cors;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Protocols;
-using Microsoft.IdentityModel.Protocols.OpenIdConnect;
-using Microsoft.IdentityModel.Tokens;
 using NexusAstralis.Data;
-using NexusAstralis.Interface;
-using NexusAstralis.Models.Stars;
 using NexusAstralis.Models.User;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Text;
-using static Google.Apis.Auth.GoogleJsonWebSignature;
 
 namespace NexusAstralis.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class AccountController(IEmailSender emailSender, SignInManager<NexusUser> signInManager, UserManager<NexusUser> userManager, UserContext context, NexusStarsContext starsContext, IConfiguration configuration) : ControllerBase
+    public class AccountController(SignInManager<NexusUser> signInManager, UserManager<NexusUser> userManager, UserContext context, NexusStarsContext starsContext) : ControllerBase
     {
-        private readonly string GoogleClientId = Environment.GetEnvironmentVariable("Google-Client-Id")!; // Reemplaza con tu Client ID.
-        private readonly string MicrosoftClientId = Environment.GetEnvironmentVariable("Microsoft-Client-Id")!; // Reemplaza con tu Client ID.
-
-        [EnableCors]
-        [HttpPost("GoogleLogin")]
-        public async Task<IActionResult> GoogleLogin([FromBody] ExternalLogin request)
-        {
-            var token = request.Token;
-
-            try
-            {
-                // Verifico el token de Google
-                var payload = await ValidateAsync(token, new ValidationSettings
-                {
-                    Audience = [GoogleClientId] // Validar contra el ClientID de Google.
-                });
-
-                NexusUser user = await VerifyUser(payload.Email, payload.Name, payload.Picture);
-
-                var localToken = await GenerateToken(user);
-
-                return Ok(new
-                {
-                    Message = "Inicio de Sesión Exitoso",
-                    Token = new JwtSecurityTokenHandler().WriteToken(localToken),
-                    user.Nick,
-                    user.Email,
-                    user.Name,
-                    user.ProfileImage
-                });
-            }
-            catch (InvalidJwtException ex)
-            {
-                // Token inválido
-                return BadRequest(new { Message = "Token Inválido", Error = ex.Message });
-            }
-        }
-
-        [EnableCors]
-        [HttpPost("MicrosoftLogin")]
-        public async Task<IActionResult> MicrosoftLogin([FromBody] ExternalLogin request)
-        {
-            var token = request.Token;
-            try
-            {
-                var configManager = new ConfigurationManager<OpenIdConnectConfiguration>(
-                    "https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration",
-                    new OpenIdConnectConfigurationRetriever());
-
-                var config = await configManager.GetConfigurationAsync();
-                var tokenHandler = new JwtSecurityTokenHandler();
-
-                var validationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    IssuerValidator = (issuer, securityToken, validationParameters) =>
-                    {
-                        // Validar que el emisor sea de Microsoft
-                        if (issuer.StartsWith("https://login.microsoftonline.com/") && issuer.EndsWith("/v2.0"))
-                        {
-                            return issuer; // Emisor válido
-                        }
-
-                        // Validar emisores de la versión 1.0
-                        if (issuer.StartsWith("https://sts.windows.net/"))
-                        {
-                            return issuer; // Emisor válido para v1.0
-                        }
-
-                        throw new SecurityTokenInvalidIssuerException("Emisor no válido.");
-                    },
-                    ValidateAudience = true,
-                    ValidAudiences = [MicrosoftClientId],
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKeys = config.SigningKeys,
-                    ValidateLifetime = true
-                };
-
-                // Validar el token
-                var claimsPrincipal = tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
-
-                NexusUser user = await VerifyUser(claimsPrincipal.FindFirst("preferred_username")?.Value!,
-                    claimsPrincipal.FindFirst("name")?.Value!,
-                    claimsPrincipal.FindFirst("homeAccountId")?.Value!);
-
-                var localToken = await GenerateToken(user);
-
-                return Ok(new
-                {
-                    message = "Login Exitoso",
-                    Token = new JwtSecurityTokenHandler().WriteToken(localToken),
-                    user.Nick,
-                    user.Email,
-                    user.Name,
-                    user.ProfileImage
-                });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = "Token Inválido", Error = ex.Message });
-            }
-        }
-
-        private async Task<NexusUser> VerifyUser(string email, string name, string picture)
-        {
-            NexusUser? user = await userManager.FindByEmailAsync(email);
-            if (user == null)
-            {
-                user = new NexusUser
-                {
-                    Nick = "Visitor",
-                    UserName = email,
-                    Email = email,
-                    Name = name,
-                    Surname1 = "",
-                    PhoneNumber = "",
-                    EmailConfirmed = true,
-                    ProfileImage = picture,
-                    PublicProfile = false
-                };
-                IdentityResult result = await userManager.CreateAsync(user, "Pass-1234");
-                if (result.Succeeded)
-                {
-                    await userManager.AddToRoleAsync(user, "Basic");
-                }
-            }
-            return user;
-        }
-
-        [HttpGet("GetUserId/{id}")]
+        [HttpGet("GetUserId/{id}")] // Obtiene el Perfil y Los Favoritos de un Usuario por su ID.
         public async Task<IActionResult> GetUserId(string id)
         {
             var user = await userManager.Users
@@ -161,7 +24,7 @@ namespace NexusAstralis.Controllers
                 return NotFound("ERROR: Ese Usuario no Existe.");
             }
 
-            // Obtener favoritos explícitamente
+            // Obtener favoritos.
             var favoriteIds = await context.Favorites
                 .Where(f => f.UserId == id)
                 .Select(f => f.ConstellationId)
@@ -190,7 +53,7 @@ namespace NexusAstralis.Controllers
             return Ok(userInfo);
         }
 
-        [HttpGet("Users")]
+        [HttpGet("Users")] // Lista Completa de los Usuarios.
         public async Task<IActionResult> Users() =>
             Ok(await userManager.Users.ToListAsync());
 
@@ -205,7 +68,7 @@ namespace NexusAstralis.Controllers
             return Ok(userManager.Users);
         }
 
-        [HttpGet("GetUsersLilInfo")]
+        [HttpGet("GetUsersLilInfo")] // Poca Info de Todos los Usuario.
         public async Task<IActionResult> GetUsersLil()
         {
             var user = await GetUserFromToken();
@@ -227,49 +90,61 @@ namespace NexusAstralis.Controllers
                 return Ok(users);
             }
 
-        [HttpGet("GetUserInfo/{nick}")]
+        [HttpGet("GetUserInfo/{nick}")] // Obtiene el Perfil, Los Favoritos y Comentarios de un Usuario por su Nick.
         public async Task<IActionResult> GetUser(string nick)
         {
-            var user = await userManager.Users
-            .Include(u => u.Favorite)
-            .FirstOrDefaultAsync(u => u.Nick == nick);
-
-            if (user == null)
+            var loguedUser = await GetUserFromToken();
+            if (loguedUser == null)
             {
                 return NotFound("ERROR: Ese Usuario no Existe.");
             }
 
-            var favoriteConstellationIds = user.Favorite.Select(f => f.ConstellationId).ToList();
+            var userByNick = await userManager.Users
+                .FirstOrDefaultAsync(u => u.Nick == nick);
 
-            var favoriteConstellations = await starsContext.constellations
-                .Where(c => favoriteConstellationIds.Contains(c.id))
+            if (userByNick == null)
+            {
+                return NotFound("ERROR: Ese Usuario no Existe.");
+            }
+
+            var id = userByNick.Id;
+
+            // Obtener favoritos de la tabla Favorites
+            var favoriteIds = await context.Favorites
+                .Where(f => f.UserId == id)
+                .Select(f => f.ConstellationId)
                 .ToListAsync();
 
-            var userComments = await starsContext.Comments
-                .Where(c => c.UserNick == nick)
-                .Include(c => c.Constellation)
+            // Cargar las constelaciones completas
+            var favoriteConstellations = await starsContext.constellations
+                .Where(c => favoriteIds.Contains(c.id))
+                .ToListAsync();
+
+            // Cargar los comentarios con información de las constelaciones
+            var userComments = await context.Comments
+                .Where(c => c.UserId == id)
                 .Select(c => new
                 {
                     c.Id,
-                    c.UserNick,
+                    c.UserId,
                     c.ConstellationId,
-                    c.Comment,
+                    c.Comment
                 })
                 .ToListAsync();
 
             var userInfo = new UserInfoDto
             {
-                Nick = user.Nick,
-                Name = user.Name,
-                Surname1 = user.Surname1,
-                Surname2 = user.Surname2,
-                Email = user.Email,
-                PhoneNumber = user.PhoneNumber,
-                ProfileImage = user.ProfileImage,
-                Bday = user.Bday,
-                About = user.About,
-                UserLocation = user.UserLocation,
-                PublicProfile = user.PublicProfile,
+                Nick = userByNick.Nick,
+                Name = userByNick.Name,
+                Surname1 = userByNick.Surname1,
+                Surname2 = userByNick.Surname2,
+                Email = userByNick.Email,
+                PhoneNumber = userByNick.PhoneNumber,
+                ProfileImage = userByNick.ProfileImage,
+                Bday = userByNick.Bday,
+                About = userByNick.About,
+                UserLocation = userByNick.UserLocation,
+                PublicProfile = userByNick.PublicProfile,
                 Favorites = favoriteConstellations,
                 Comments = userComments
             };
@@ -277,70 +152,7 @@ namespace NexusAstralis.Controllers
             return Ok(userInfo);
         }
 
-        [HttpPost("Login")]
-        public async Task<IActionResult> Login(Login model)
-        {
-            NexusUser? user = await userManager.FindByEmailAsync(model.Email!);
-
-            if (user == null)
-            {
-                return NotFound("ERROR: No Existe un Usuario Registrado con ese E-mail.");
-            }
-
-            if (!user.EmailConfirmed)
-            {
-                return BadRequest("ERROR: El E-mail no Está Confirmado, Por Favor Confirma tu Registro.");
-            }
-
-            if (user != null && await userManager.CheckPasswordAsync(user, model.Password!))
-            {
-                var token = await GenerateToken(user);
-                return Ok(new JwtSecurityTokenHandler().WriteToken(token));
-            }
-
-            return Unauthorized();
-        }
-
-        private async Task<JwtSecurityToken> GenerateToken(NexusUser user)
-        {
-            IList<string> roles = await userManager.GetRolesAsync(user);
-            if (roles.Count == 0)
-            {
-                await userManager.AddToRoleAsync(user, "Basic");
-                roles = await userManager.GetRolesAsync(user);
-            }
-            var claims = new List<Claim>
-            {
-                new (JwtRegisteredClaimNames.Sub, user.UserName!),
-                new (JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()),
-                new (JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-            };
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["JWT:Key"]!));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            return new JwtSecurityToken(
-                issuer: configuration["JWT:Issuer"],
-                audience: configuration["JWT:Audience"],
-                claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(1),
-                signingCredentials: creds);
-        }
-
-        [HttpPost("ForgotPassword")]
-        public async Task<IActionResult> ForgotPassword(ForgotPassword model)
-        {
-            var user = await userManager.FindByEmailAsync(model.Email!);
-            if (user != null)
-            {
-                var token = await userManager.GeneratePasswordResetTokenAsync(user);
-                var resetLink = Url.Action("ResetPassword", "Account", new { email = model.Email, token }, Request.Scheme);
-                await emailSender.SendEmailAsync(model.Email!, "Reestablecer Contraseña", $"Por Favor Reestablece tu Contraseña Haciendo Click en Este Enlace: <a href='{resetLink}'>Reestablecer Contraseña</a>");
-                return Ok("Por Favor Revisa tu E-mail Para Cambiar la Contraseña.");
-            }
-
-            return NotFound("ERROR: No Existe un Usuario Registrado con ese E-mail.");
-        }
-
-        [HttpPost("ResetPassword")]
+        [HttpPost("ResetPassword")] // Cambio de Contraseña.
         public async Task<IActionResult> ResetPassword(ResetPassword model)
         {
             var user = await userManager.FindByEmailAsync(model.Email!);
@@ -355,63 +167,7 @@ namespace NexusAstralis.Controllers
                 : BadRequest("ERROR: La Contraseña Tiene que Tener al Menos una Letra Mayúscula, una Minúscula, un Dígito, un Caracer Especial y 8 Caracteres de Longitud.");
         }
 
-        [HttpPost("Register")]
-        public async Task<IActionResult> Register([FromForm] Register model)
-        {
-            if (await userManager.FindByEmailAsync(model.Email!) != null || await userManager.Users.AnyAsync(u => u.Nick == model.Nick))
-            {
-                return BadRequest("ERROR: Ya Existe un Usuario Registrado con ese E-mail o Nick.");
-            }
-
-            var profileImagePath = await SaveProfileImageAsync(model.ProfileImageFile, model.Nick!);
-
-            bool Profile = model.PublicProfile == "1";
-
-            string? NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;
-
-            model.Surname2 = NullIfEmpty(model.Surname2!);
-            model.About = NullIfEmpty(model.About!);
-            model.UserLocation = NullIfEmpty(model.UserLocation!);
-
-            var user = new NexusUser
-            {
-                Nick = model.Nick,
-                Name = model.Name,
-                Surname1 = model.Surname1,
-                Surname2 = model.Surname2,
-                UserName = model.Email,
-                Email = model.Email,
-                PhoneNumber = model.PhoneNumber,
-                ProfileImage = profileImagePath,
-                Bday = model.Bday,
-                About = model.About,
-                UserLocation = model.UserLocation,
-                PublicProfile = Profile
-            };
-
-            try
-            {
-                IdentityResult result = await userManager.CreateAsync(user, model.Password!);
-                if (result.Succeeded)
-                {
-                    await userManager.AddToRoleAsync(user, "Basic");
-                    var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
-                    var confirmationLink = Url.Action("ConfirmEmail", "Account", new { userId = user.Id, token }, Request.Scheme);
-
-                    await emailSender.SendEmailAsync(user.Email!, "Confirma tu Registro", $"Por Favor Confirma tu Cuenta Haciendo Click en Este Enlace: <a href='{confirmationLink}'>Confirmar Registro</a>");
-
-                    return Ok("Confirma tu Registro.");
-                }
-            }
-            catch (Exception)
-            {
-                return BadRequest("ERROR: La Contraseña Tiene que Tener al Menos una Letra Mayúscula, una Minúscula, un Dígito, un Caracer Especial y 8 Caracteres de Longitud.");
-            }
-
-            return BadRequest("ERROR: La Contraseña Tiene que Tener al Menos una Letra Mayúscula, una Minúscula, un Dígito, un Caracer Especial y 8 Caracteres de Longitud.");
-        }
-
-        [HttpGet("ConfirmEmail")]
+        [HttpGet("ConfirmEmail")] // Confirmación de Registro.
         public async Task<IActionResult> ConfirmEmail(string userId, string token)
         {
             if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(token))
@@ -431,13 +187,18 @@ namespace NexusAstralis.Controllers
                 : BadRequest("ERROR: El E-mail de Confirmación no Está Registrado, ¿Estás Seguro que no Eliminaste tu Cuenta?.");
         }
 
-        [HttpPatch("Update")]
+        [HttpPatch("Update")] // Actualización de Datos.
         public async Task<IActionResult> Update([FromForm] Register model)
         {
             var user = await GetUserFromToken();
             if (user == null)
             {
                 return NotFound("ERROR: Ese Usuario no Existe.");
+            }
+
+            if (user.Nick != model.Nick && await NickExistsAsync(model.Nick!, user.Id))
+            {
+                return BadRequest("ERROR: Ya Existe un Usuario con ese Nick.");
             }
 
             string? NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;
@@ -490,7 +251,7 @@ namespace NexusAstralis.Controllers
             return BadRequest("ERROR: La Contraseña Tiene que Tener al Menos una Letra Mayúscula, una Minúscula, un Dígito, un Caracer Especial y 8 Caracteres de Longitud.");
         }
 
-        [HttpPost("Logout")]
+        [HttpPost("Logout")] // Logout de la App.
         public async Task<IActionResult> Logout()
         {
             var user = await GetUserFromToken();
@@ -503,7 +264,7 @@ namespace NexusAstralis.Controllers
             return Ok("Loged Out.");
         }
 
-        [HttpDelete("Delete")]
+        [HttpDelete("Delete")] // Delete de la Cuenta. Elimina el Usuario y su Carpeta de Imágenes, por el Token.
         public async Task<IActionResult> Delete()
         {
             var user = await GetUserFromToken();
@@ -528,7 +289,7 @@ namespace NexusAstralis.Controllers
             return Ok("Usuario Eliminado.");
         }
 
-        [HttpGet("Profile")]
+        [HttpGet("Profile")] // Perfile del Usuario Logueado.
         public async Task<IActionResult> Profile()
         {
             var user = await GetUserFromToken();
@@ -536,6 +297,30 @@ namespace NexusAstralis.Controllers
             {
                 return NotFound("ERROR: Ese Usuario no Existe.");
             }
+
+            // Obtener favoritos
+            var favoriteIds = await context.Favorites
+                .Where(f => f.UserId == user.Id)
+                .Select(f => f.ConstellationId)
+                .ToListAsync();
+
+            var favoriteConstellations = await starsContext.constellations
+                .Where(c => favoriteIds.Contains(c.id))
+                .ToListAsync();
+
+            // Obtener comentarios
+            var userComments = await context.Comments
+                .Where(c => c.UserId == user.Id)
+                .Select(c => new
+                {
+                    c.Id,
+                    c.UserId,
+                    c.ConstellationName,
+                    c.Comment,
+                    c.ConstellationId
+                })
+                .ToListAsync();
+
             var userProfile = new UserInfoDto
             {
                 Nick = user.Nick,
@@ -549,13 +334,14 @@ namespace NexusAstralis.Controllers
                 About = user.About,
                 UserLocation = user.UserLocation,
                 PublicProfile = user.PublicProfile,
-                Favorites = user.Favorites
+                Favorites = favoriteConstellations,
+                Comments = userComments
             };
 
             return Ok(userProfile);
         }
 
-        [HttpGet("Favorites")]
+        [HttpGet("Favorites")] // Favoritos del Usuario Logueado.
         public async Task<IActionResult> Favorites()
         {
             var user = await GetUserFromToken();
@@ -584,8 +370,22 @@ namespace NexusAstralis.Controllers
             return Ok(favoriteConstellations);
         }
 
-        [HttpPost("Favorites")]
-        public async Task<IActionResult> AddToFavorites([FromBody] int constellationId)
+        [HttpGet("Favorites/{id}")] // Verifica si una Constelación es Favorita.
+        public async Task<IActionResult> Favorite(int id)
+        {
+            var user = await GetUserFromToken();
+            if (user == null)
+            {
+                return NotFound("ERROR: Ese Usuario no Existe.");
+            }
+            bool favorite = await context.Favorites
+                .AnyAsync(f => f.UserId == user.Id && f.ConstellationId == id);
+
+            return Ok(favorite);
+        }
+
+        [HttpPost("Favorites/{id}")] // Agrega una Constelación a Favoritos.
+        public async Task<IActionResult> AddToFavorites(int id)
         {
             var user = await GetUserFromToken();
             if (user == null)
@@ -595,17 +395,17 @@ namespace NexusAstralis.Controllers
 
             // Verificar si ya existe el favorito
             bool exists = await context.Favorites
-                .AnyAsync(f => f.UserId == user.Id && f.ConstellationId == constellationId);
+                .AnyAsync(f => f.UserId == user.Id && f.ConstellationId == id);
 
             if (exists)
             {
                 return BadRequest("La constelación ya está en tus favoritos.");
             }
 
-            var favorite = new Favorite
+            var favorite = new Favorites
             {
                 UserId = user.Id,
-                ConstellationId = constellationId
+                ConstellationId = id
             };
 
             context.Favorites.Add(favorite);
@@ -614,8 +414,8 @@ namespace NexusAstralis.Controllers
             return Ok("Constelación Agregada a Favoritos.");
         }
 
-        [HttpDelete("Favorites")]
-        public async Task<IActionResult> DeleteFavorite([FromBody] List<int> constellationIds)
+        [HttpDelete("Favorites/{id}")] // Elimina una Constelación de Favoritos del Usuario Logueado.
+        public async Task<IActionResult> DeleteFavorite(int id)
         {
             var user = await GetUserFromToken();
             if (user == null)
@@ -623,55 +423,63 @@ namespace NexusAstralis.Controllers
                 return NotFound("ERROR: Ese Usuario no Existe.");
             }
 
-            if (constellationIds == null || !constellationIds.Any())
+            var favoriteToRemove = await context.Favorites
+                .FirstOrDefaultAsync(f => f.UserId == user.Id && f.ConstellationId == id);
+
+            if (favoriteToRemove == null)
             {
-                return BadRequest("Debes especificar al menos una constelación.");
+                return NotFound("No se encontró el favorito para eliminar.");
             }
 
-            var favoritesToRemove = await context.Favorites
-                .Where(f => f.UserId == user.Id && constellationIds.Contains(f.ConstellationId))
-                .ToListAsync();
-
-            if (!favoritesToRemove.Any())
-            {
-                return NotFound("No se encontraron favoritos para eliminar.");
-            }
-
-            context.Favorites.RemoveRange(favoritesToRemove);
+            // Eliminar el favorito encontrado
+            context.Favorites.Remove(favoriteToRemove);
             await context.SaveChangesAsync();
 
-            return Ok("Constelación(es) eliminada(s) de Favoritos.");
+            return Ok("Constelación Eliminada de Favoritos.");
         }
 
-        [HttpGet("GetComments/{nick}")]
-        public async Task<IActionResult> GetComments(string nick)
+        [HttpGet("GetUserComments/{id}")] // Obtiene los Comentarios de un Usuario por su ID.
+        public async Task<IActionResult> GetComments(string id)
         {
-            var userExists = await userManager.Users.AnyAsync(u => u.Nick == nick);
+            var userExists = await userManager.Users.AnyAsync(u => u.Id == id);
             if (!userExists)
             {
                 return NotFound("ERROR: Ese Usuario no Existe.");
             }
 
             // Consultamos directamente en la tabla de comentarios del contexto de estrellas
-            var userComments = await starsContext.Comments
-                .Where(c => c.UserNick == nick)
-                .Include(c => c.Constellation)
+            var userComments = await context.Comments
+                .Where(c => c.UserId == id)
                 .Select(c => new
                 {
                     c.Id,
-                    c.UserNick,
+                    c.UserId,
                     c.Comment,
-                    c.ConstellationId,
-                    ConstellationName = c.Constellation.latin_name,
-                    ConstellationImage = c.Constellation.image_url
+                    c.ConstellationId
                 })
                 .ToListAsync();
 
             return Ok(userComments);
         }
 
+        [HttpGet("GetComments/{id}")]
+        public async Task<ActionResult<IEnumerable<Comments>>> GetComments(int id)
+        {
+            // Buscar comentarios en la base de datos de usuarios por id de constelación
+            var comments = await context.Comments
+                .Where(c => c.ConstellationId == id)
+                .ToListAsync();
+
+            if (comments == null || comments.Count == 0)
+            {
+                return NotFound("No hay comentarios para esta constelación.");
+            }
+
+            return Ok(comments);
+        }
+
         // Método auxiliar para obtener el usuario desde el token
-        private async Task<NexusUser?> GetUserFromToken()
+        private async Task<NexusUser?> GetUserFromToken() // Obtiene el Usuario Logueado.
         {
             var authHeader = HttpContext.Request.Headers.Authorization.FirstOrDefault();
             if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
@@ -700,7 +508,7 @@ namespace NexusAstralis.Controllers
             }
         }
 
-        [HttpPost("UpgradeToPremium")]
+        [HttpPost("UpgradeToPremium")] // Upgrade to Premium.
         public async Task<IActionResult> UpgradeToPremium()
         {
             var user = await GetUserFromToken();
@@ -731,9 +539,20 @@ namespace NexusAstralis.Controllers
             return Ok("¡Ahora Eres Usuario Premium!");
         }
 
+        private async Task<bool> NickExistsAsync(string nick, string? currentUserId = null) // Comprueba si Existe el Nick del Usuario.
+        {
+            // Si estamos actualizando un usuario existente, excluirlo de la verificación
+            if (currentUserId != null)
+            {
+                return await userManager.Users
+                    .AnyAsync(u => u.Nick == nick && u.Id != currentUserId);
+            }
 
+            // Para nuevos usuarios, verificar si cualquier usuario tiene ese Nick
+            return await userManager.Users.AnyAsync(u => u.Nick == nick);
+        }
 
-        private static async Task<string> SaveProfileImageAsync(IFormFile? profileImageFile, string nick)
+        public static async Task<string> SaveProfileImageAsync(IFormFile? profileImageFile, string nick)
         {
             if (profileImageFile is null)
             {
@@ -750,6 +569,6 @@ namespace NexusAstralis.Controllers
                 await profileImageFile.CopyToAsync(fileStream);
 
             return $"/imgs/profile/{nick}/{lastName}";
-        }
+        } // Guarda la Imagen de Perfil en el Servidor.
     }
 }

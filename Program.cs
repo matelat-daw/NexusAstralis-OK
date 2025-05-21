@@ -23,8 +23,8 @@ builder.Services.Configure<SmtpSettings>(option =>
 
 builder.Services.AddTransient<IEmailSender, EmailSender>(); // Servicio de Correo.
 
-var conn = builder.Configuration.GetConnectionString("conn"); // Conexión con la Base de Datos de Usuarios.
-var conn2 = builder.Configuration.GetConnectionString("conn2"); // Conexión con la Base de Datos de Datos.
+var conn = builder.Configuration.GetConnectionString("conn"); // Conexión con la Base de Datos de Usuarios Sin Password.
+var conn2 = builder.Configuration.GetConnectionString("conn2"); // Conexión con la Base de Datos de Datos Sin Password.
 var pass = Environment.GetEnvironmentVariable("SQL-SERVER"); // Contraseña de la Base de Datos.
 var fullConn = $"{conn};Password={pass}";
 var fullConn2 = $"{conn2};Password={pass}";
@@ -38,6 +38,7 @@ builder.Services.AddControllers()
         x.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles; // Para Evitar que los JSON Hagan un Bucle Infinito.}
         x.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
     });
+
 builder.Services.AddIdentity<NexusUser, IdentityRole>(options =>
 {
     options.SignIn.RequireConfirmedAccount = true;
@@ -75,9 +76,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         microsoftOptions.ClientId = Environment.GetEnvironmentVariable("Microsoft-Client-Id")!;
         microsoftOptions.ClientSecret = Environment.GetEnvironmentVariable("Microsoft-Client-Secret")!;
-    });
+    }); // Métodos para la Autenticación por Google y Microsoft.
 
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen(option =>
@@ -115,7 +115,6 @@ builder.Services.AddCors(options =>
     {
         {
             policy.WithOrigins("https://nexus-astralis-2.vercel.app", "https://login-google-rho.vercel.app", "https://external-login-lemon.vercel.app", "http://localhost:4200") // Permitir los origenes de pruebas.
-            //policy.AllowAnyOrigin() // Permitir cualquier origen.
             .AllowAnyHeader()
             .AllowAnyMethod();
         }
@@ -133,19 +132,13 @@ app.UseCors(AllowCors); // Habilita CORS para la API.
 
 app.Use(async (context, next) =>
 {
-context.Response.Headers.Remove("Cross-Origin-Opener-Policy");
-context.Response.Headers.Remove("Cross-Origin-Embedder-Policy");
-// Solo para desarrollo, puedes agregar:
-// context.Response.Headers["Cross-Origin-Opener-Policy"] = "unsafe-none";
-await next();
+    context.Response.Headers.Remove("Cross-Origin-Opener-Policy");
+    context.Response.Headers.Remove("Cross-Origin-Embedder-Policy");
+    await next();
 });
 
-// Configure the HTTP request pipeline.
-// if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 

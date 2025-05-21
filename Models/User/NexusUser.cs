@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
-using NexusAstralis.Models.Stars;
 
 namespace NexusAstralis.Models.User
 {
@@ -25,9 +25,7 @@ namespace NexusAstralis.Models.User
         [Display(Name = "Perfil Público?: ")]
         public bool PublicProfile { get; set; } = false;
 
-        public virtual ICollection<Constellations> Favorites { get; set; } = new List<Constellations>();
+        public virtual ICollection<Favorites> Favorites { get; set; } = new List<Favorites>(); // Para la Relación con la Tabla de Favoritos.
         public virtual ICollection<Comments> Comments { get; set; } = new List<Comments>();
-
-        public virtual ICollection<Favorite> Favorite { get; set; } = new List<Favorite>();
     }
 }
