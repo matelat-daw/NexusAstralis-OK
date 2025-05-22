@@ -139,8 +139,11 @@ namespace NexusAstralis.Controllers
         [HttpPost("Register")] // Registro en la App.
         public async Task<IActionResult> Register([FromForm] Register model)
         {
-            if (await userManager.FindByEmailAsync(model.Email!) != null || await userManager.Users.AnyAsync(u => u.Nick == model.Nick))
-                return BadRequest("ERROR: Ya Existe un Usuario Registrado con ese E-mail o Nick.");
+            if (await userManager.FindByEmailAsync(model.Email!) != null)
+                return BadRequest("ERROR: Ya Existe un Usuario Registrado con ese E-mail.");
+
+            if (await NickExistsAsync(model.Nick!))
+                return BadRequest("ERROR: Ya Existe un Usuario Registrado con ese Nick.");
 
             var profileImagePath = await AccountController.SaveProfileImageAsync(model.ProfileImageFile, model.Nick!);
 
