@@ -184,18 +184,16 @@ namespace NexusAstralis.Controllers
 
             string? NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;
 
-            model.UserLocation = NullIfEmpty(model.UserLocation!);
-
             user.Nick = model.Nick;
             user.Name = model.Name;
             user.Surname1 = model.Surname1;
-            model.Surname2 = NullIfEmpty(model.Surname2!);
+            user.Surname2 = NullIfEmpty(model.Surname2!);
             user.Email = model.Email;
             user.PhoneNumber = model.PhoneNumber;
             user.Bday = model.Bday;
-            model.About = NullIfEmpty(model.About!);
-            user.UserLocation = model.UserLocation;
-            bool Profile = model.PublicProfile == "1";
+            user.About = NullIfEmpty(model.About!);
+            user.UserLocation = NullIfEmpty(model.UserLocation!);
+            user.PublicProfile = model.PublicProfile == "1";
 
             if (model.ProfileImageFile != null)
                 user.ProfileImage = await SaveProfileImageAsync(model.ProfileImageFile, model.Nick!);
