@@ -1,62 +1,49 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NexusAstralis.Data;
 using NexusAstralis.Models.User;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
+using NexusAstralis.Services;
 
 namespace NexusAstralis.Controllers
 {
     [Authorize(AuthenticationSchemes = "Bearer")]
     [Route("api/[controller]")]
     [ApiController]
-    public class CommentsController(UserContext context, UserManager<NexusUser> userManager) : ControllerBase
+    public class CommentsController(UserContext context, NexusStarsContext starsContext, UserTokenService userTokenService) : ControllerBase
     {
         // GET: api/Comments
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Comments>>> GetAllComments()
-        {
-            return await context.Comments.ToListAsync();
-        }
+            => await context.Comments.ToListAsync();
 
         // GET: api/Comments/5
         [HttpGet("ById/{id}")]
-        public async Task<ActionResult<Comments>> GetCommentsById(int id)
+        public async Task<ActionResult<Comments>> GetCommentById(int id)
         {
-            var comments = await context.Comments.FindAsync(id);
+            var comment = await context.Comments.FindAsync(id);
 
-            if (comments == null)
-            {
-                return NotFound();
-            }
-
-            return comments;
+            return comment is null ? NotFound() : Ok(comment);
         }
 
         [HttpGet("User/{userId}")]
         public async Task<ActionResult<IEnumerable<Comments>>> GetCommentsByUser(string userId)
         {
-            var comments = await context.Comments.Where(c => c.UserId == userId).ToListAsync();
-            if (comments == null || comments.Count == 0)
-            {
-                return NotFound();
-            }
-            return comments;
+            var comments = await context.Comments
+                .Where(c => c.UserId == userId).ToListAsync();
+            
+            return comments.Count == 0 ? NotFound() : Ok(comments);
         }
 
         // PUT: api/Comments/5
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutComments(int id, Comments comments)
+        public async Task<IActionResult> PutComment(int id, [FromBody] Comments comment)
         {
-            if (id != comments.Id)
-            {
+            if (id != comment.Id)
                 return BadRequest();
-            }
 
-            context.Entry(comments).State = EntityState.Modified;
+            context.Entry(comment).State = EntityState.Modified;
 
             try
             {
@@ -64,70 +51,58 @@ namespace NexusAstralis.Controllers
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!CommentsExists(id))
-                {
+                if (!CommentExists(id))
                     return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
 
             return NoContent();
         }
 
-        private bool CommentsExists(int id)
-        {
-            return context.Comments.Any(e => e.Id == id);
-        }
-
         // POST: api/Comments
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
-        public async Task<ActionResult<Comments>> PostComments(Comments comments)
+        public async Task<ActionResult<Comments>> PostComment([FromBody] Comments comment)
         {
-            var user = await GetUserFromToken();
+            var user = await userTokenService.GetUserFromTokenAsync();
+            if (user == null)
+                return NotFound("ERROR: Ese Usuario no Existe.");
+
+            var constellation = await starsContext.constellations
+                .FirstOrDefaultAsync(c => c.id == comment.ConstellationId);
+
+            if (constellation == null)
+                return NotFound("ERROR: La constelación no existe.");
+
+            comment.UserId = user.Id;
+            comment.ConstellationName = constellation.latin_name;
+            context.Comments.Add(comment);
+            await context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetCommentById), new { id = comment.Id }, comment);
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteComment(int id)
+        {
+            var user = await userTokenService.GetUserFromTokenAsync();
             if (user == null)
             {
                 return NotFound("ERROR: Ese Usuario no Existe.");
             }
 
-            var UserId = user.Id;
-            comments.UserId = UserId;
-            context.Comments.Add(comments);
-            await context.SaveChangesAsync();
+            var comment = await context.Comments.FindAsync(id);
+            if (comment == null)
+                return NotFound();
 
-            return CreatedAtAction("GetComments", new { id = comments.Id }, comments);
+            context.Comments.Remove(comment);
+            await context.SaveChangesAsync();
+            return NoContent();
         }
 
-        private async Task<NexusUser?> GetUserFromToken()
+        private bool CommentExists(int id)
         {
-            var authHeader = HttpContext.Request.Headers.Authorization.FirstOrDefault();
-            if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
-            {
-                return null;
-            }
-
-            var token = authHeader["Bearer ".Length..].Trim();
-
-            try
-            {
-                var tokenHandler = new JwtSecurityTokenHandler();
-                var jwtToken = tokenHandler.ReadJwtToken(token);
-
-                var userNameClaim = jwtToken.Claims.FirstOrDefault(c =>
-                    c.Type == JwtRegisteredClaimNames.Sub ||
-                    c.Type == ClaimTypes.NameIdentifier ||
-                    c.Type == "name" ||
-                    c.Type == "email");
-
-                return userNameClaim == null ? null : await userManager.FindByNameAsync(userNameClaim.Value);
-            }
-            catch
-            {
-                return null;
-            }
+            return context.Comments.Any(e => e.Id == id);
         }
     }
 }

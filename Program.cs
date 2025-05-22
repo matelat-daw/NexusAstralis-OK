@@ -8,26 +8,34 @@ using NexusAstralis.Email;
 using NexusAstralis.Interface;
 using NexusAstralis.Models.Email;
 using NexusAstralis.Models.User;
+using NexusAstralis.Services;
 using System.Text;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration; // Configuración de la Aplicación.
 
-builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp")); // Configuración del Servidor de Correo.
+//builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp")); // Configuración del Servidor de Correo.
 
 builder.Services.Configure<SmtpSettings>(option =>
 {
+    builder.Configuration.GetSection("Smtp").Bind(option); // Configuración del Servidor de Correo.
     option.Password = Environment.GetEnvironmentVariable("Gmail-Nexus"); // Contraseña del Servidor de Correo.
 });
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<UserTokenService>();
 builder.Services.AddTransient<IEmailSender, EmailSender>(); // Servicio de Correo.
 
-var conn = builder.Configuration.GetConnectionString("conn"); // Conexión con la Base de Datos de Usuarios Sin Password.
-var conn2 = builder.Configuration.GetConnectionString("conn2"); // Conexión con la Base de Datos de Datos Sin Password.
-var pass = Environment.GetEnvironmentVariable("SQL-SERVER"); // Contraseña de la Base de Datos.
-var fullConn = $"{conn};Password={pass}";
-var fullConn2 = $"{conn2};Password={pass}";
+//var conn = builder.Configuration.GetConnectionString("conn"); // Conexión con la Base de Datos de Usuarios Sin Password.
+//var conn2 = builder.Configuration.GetConnectionString("conn2"); // Conexión con la Base de Datos de Datos Sin Password.
+//var pass = Environment.GetEnvironmentVariable("SQL-SERVER"); // Contraseña de la Base de Datos.
+//var fullConn = $"{conn};Password={pass}";
+//var fullConn2 = $"{conn2};Password={pass}";
+
+var pass = Environment.GetEnvironmentVariable("SQL-SERVER");
+var fullConn = $"{builder.Configuration.GetConnectionString("conn")};Password={pass}";
+var fullConn2 = $"{builder.Configuration.GetConnectionString("conn2")};Password={pass}";
 
 builder.Services.AddDbContext<UserContext>(options => options.UseSqlServer(fullConn)); // Conexión con la Base de Datos de Usuarios.
 builder.Services.AddDbContext<NexusStarsContext>(options => options.UseSqlServer(fullConn2)); // Conexión con la Base de Datos de Datos.
@@ -108,16 +116,17 @@ builder.Services.AddSwaggerGen(option =>
 }); // Este Método Habilita Swagger para Hacer la Pruebas de la API Autenticando Usuarios con el Token.
 
 var AllowCors = "AllowCors";
-
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: AllowCors, policy =>
     {
-        {
-            policy.WithOrigins("https://nexus-astralis-2.vercel.app", "https://login-google-rho.vercel.app", "https://external-login-lemon.vercel.app", "http://localhost:4200") // Permitir los origenes de pruebas.
-            .AllowAnyHeader()
-            .AllowAnyMethod();
-        }
+        policy.WithOrigins(
+            "https://nexus-astralis-2.vercel.app",
+            "https://login-google-rho.vercel.app",
+            "https://external-login-lemon.vercel.app",
+            "http://localhost:4200") // Permitir los origenes de pruebas.
+        .AllowAnyHeader()
+        .AllowAnyMethod();
     });
 });
 
@@ -137,16 +146,19 @@ app.Use(async (context, next) =>
     await next();
 });
 
-app.UseSwagger();
-app.UseSwaggerUI();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
-
 app.UseStaticFiles();
+
+app.MapControllers();
 
 app.Run();

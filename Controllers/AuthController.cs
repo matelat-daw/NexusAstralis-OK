@@ -10,7 +10,6 @@ using NexusAstralis.Models.User;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using static Google.Apis.Auth.GoogleJsonWebSignature;
 
 namespace NexusAstralis.Controllers
 {
@@ -24,12 +23,10 @@ namespace NexusAstralis.Controllers
         [HttpPost("GoogleLogin")] // Login con Google.
         public async Task<IActionResult> GoogleLogin([FromBody] ExternalLogin request)
         {
-            var token = request.Token;
-
             try
             {
                 // Verifico el token de Google
-                var payload = await ValidateAsync(token, new ValidationSettings
+                var payload = await GoogleJsonWebSignature.ValidateAsync(request.Token, new GoogleJsonWebSignature.ValidationSettings
                 {
                     Audience = [GoogleClientId] // Validar contra el ClientID de Google.
                 });
@@ -50,7 +47,6 @@ namespace NexusAstralis.Controllers
             }
             catch (InvalidJwtException ex)
             {
-                // Token inválido
                 return BadRequest(new { Message = "Token Inválido", Error = ex.Message });
             }
         }
@@ -71,19 +67,14 @@ namespace NexusAstralis.Controllers
                 var validationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
-                    IssuerValidator = (issuer, securityToken, validationParameters) =>
+                    //IssuerValidator = (issuer, securityToken, validationParameters) =>
+                    IssuerValidator = (issuer, _, _) =>
                     {
-                        // Validar que el emisor sea de Microsoft
                         if (issuer.StartsWith("https://login.microsoftonline.com/") && issuer.EndsWith("/v2.0"))
-                        {
                             return issuer; // Emisor válido
-                        }
 
-                        // Validar emisores de la versión 1.0
                         if (issuer.StartsWith("https://sts.windows.net/"))
-                        {
                             return issuer; // Emisor válido para v1.0
-                        }
 
                         throw new SecurityTokenInvalidIssuerException("Emisor no válido.");
                     },
@@ -97,9 +88,10 @@ namespace NexusAstralis.Controllers
                 // Validar el token
                 var claimsPrincipal = tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
 
-                NexusUser user = await VerifyUser(claimsPrincipal.FindFirst("preferred_username")?.Value!,
-                    claimsPrincipal.FindFirst("name")?.Value!,
-                    claimsPrincipal.FindFirst("homeAccountId")?.Value!);
+                NexusUser user = await VerifyUser(
+                    claimsPrincipal.FindFirst("preferred_username")?.Value ?? "",
+                    claimsPrincipal.FindFirst("name")?.Value ?? "",
+                    claimsPrincipal.FindFirst("homeAccountId")?.Value ?? "");
 
                 var localToken = await GenerateToken(user);
 
@@ -119,77 +111,21 @@ namespace NexusAstralis.Controllers
             }
         }
 
-        private async Task<NexusUser> VerifyUser(string email, string name, string picture) // Verifica si el Usuario ya tiene Cuenta en la App.
-        {
-            NexusUser? user = await userManager.FindByEmailAsync(email);
-            if (user == null)
-            {
-                string baseNick = email.Split('@')[0];
-                string nick = baseNick;
-
-                // Verificar si ya existe el Nick y, en caso afirmativo, añadir un número
-                int counter = 1;
-                while (await NickExistsAsync(nick))
-                {
-                    nick = $"{baseNick}{counter}";
-                    counter++;
-                }
-                user = new NexusUser
-                {
-                    Nick = nick,
-                    UserName = email,
-                    Email = email,
-                    Name = name,
-                    Surname1 = "",
-                    PhoneNumber = "",
-                    EmailConfirmed = true,
-                    ProfileImage = picture,
-                    PublicProfile = false
-                };
-                IdentityResult result = await userManager.CreateAsync(user, "Pass-1234");
-                if (result.Succeeded)
-                {
-                    await userManager.AddToRoleAsync(user, "Basic");
-                }
-            }
-            return user;
-        }
-
-        private async Task<bool> NickExistsAsync(string nick, string? currentUserId = null) // Comprueba si Existe el Nick del Usuario.
-        {
-            // Si estamos actualizando un usuario existente, excluirlo de la verificación
-            if (currentUserId != null)
-            {
-                return await userManager.Users
-                    .AnyAsync(u => u.Nick == nick && u.Id != currentUserId);
-            }
-
-            // Para nuevos usuarios, verificar si cualquier usuario tiene ese Nick
-            return await userManager.Users.AnyAsync(u => u.Nick == nick);
-        }
-
         [HttpPost("Login")] // Login en la App.
         public async Task<IActionResult> Login([FromBody] Login model)
         {
-            if (model.Email.IsNullOrEmpty())
-            {
+            if (string.IsNullOrWhiteSpace(model.Email))
                 return BadRequest("ERROR: El E-mail no Puede Estar Vacío.");
-            }
-            if (model.Password.IsNullOrEmpty())
-            {
+            if (string.IsNullOrWhiteSpace(model.Password))
                 return BadRequest("ERROR: La Contraseña no Puede Estar Vacía.");
-            }
+
             NexusUser? user = await userManager.FindByEmailAsync(model.Email!);
 
             if (user == null)
-            {
                 return NotFound("Credenciales inválidas.");
-            }
 
             if (!user.EmailConfirmed)
-            {
                 return BadRequest("ERROR: El E-mail no Está Confirmado, Por Favor Confirma tu Registro.");
-            }
 
             if (user != null && await userManager.CheckPasswordAsync(user, model.Password!))
             {
@@ -198,6 +134,102 @@ namespace NexusAstralis.Controllers
             }
 
             return Unauthorized();
+        }
+
+        [HttpPost("Register")] // Registro en la App.
+        public async Task<IActionResult> Register([FromForm] Register model)
+        {
+            if (await userManager.FindByEmailAsync(model.Email!) != null || await userManager.Users.AnyAsync(u => u.Nick == model.Nick))
+                return BadRequest("ERROR: Ya Existe un Usuario Registrado con ese E-mail o Nick.");
+
+            var profileImagePath = await AccountController.SaveProfileImageAsync(model.ProfileImageFile, model.Nick!);
+
+            bool Profile = model.PublicProfile == "1";
+            string? NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;
+
+            var user = new NexusUser
+            {
+                Nick = model.Nick,
+                Name = model.Name,
+                Surname1 = model.Surname1,
+                Surname2 = NullIfEmpty(model.Surname2!),
+                UserName = model.Email,
+                Email = model.Email,
+                PhoneNumber = model.PhoneNumber,
+                ProfileImage = profileImagePath,
+                Bday = model.Bday == default ? DateOnly.FromDateTime(DateTime.Now) : model.Bday,
+                About = NullIfEmpty(model.About!),
+                UserLocation = NullIfEmpty(model.UserLocation!),
+                PublicProfile = Profile
+            };
+
+            IdentityResult result = await userManager.CreateAsync(user, model.Password!);
+            if (!result.Succeeded)
+                return BadRequest("ERROR: La Contraseña Tiene que Tener al Menos una Letra Mayúscula, una Minúscula, un Dígito, un Caracer Especial y 8 Caracteres de Longitud.");
+
+            await userManager.AddToRoleAsync(user, "Basic");
+            var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
+            var confirmationLink = Url.Action("ConfirmEmail", "Account", new { userId = user.Id, token }, Request.Scheme);
+
+            await emailSender.SendEmailAsync(user.Email!, "Confirma tu Registro", $"Por Favor Confirma tu Cuenta Haciendo Click en Este Enlace: <a href='{confirmationLink}'>Confirmar Registro</a>");
+
+            return Ok("Confirma tu Registro.");
+        }
+
+        [HttpPost("ForgotPassword")] // Olvido de Contraseña.
+        public async Task<IActionResult> ForgotPassword(ForgotPassword model)
+        {
+            var user = await userManager.FindByEmailAsync(model.Email!);
+            if (user == null)
+                return NotFound("ERROR: No Existe un Usuario Registrado con ese E-mail.");
+
+            var token = await userManager.GeneratePasswordResetTokenAsync(user);
+            var resetLink = Url.Action("ResetPassword", "Account", new { email = model.Email, token }, Request.Scheme);
+            await emailSender.SendEmailAsync(model.Email!, "Reestablecer Contraseña", $"Por Favor Reestablece tu Contraseña Haciendo Click en Este Enlace: <a href='{resetLink}'>Reestablecer Contraseña</a>");
+            return Ok("Por Favor Revisa tu E-mail Para Cambiar la Contraseña.");
+        }
+
+        private async Task<NexusUser> VerifyUser(string email, string name, string picture) // Verifica si el Usuario ya tiene Cuenta en la App.
+        {
+            NexusUser? user = await userManager.FindByEmailAsync(email);
+            if (user != null)
+                return user;
+
+            string baseNick = email.Split('@')[0];
+            string nick = baseNick;
+
+            // Verificar si ya existe el Nick y, en caso afirmativo, añadir un número
+            int counter = 1;
+            while (await NickExistsAsync(nick))
+                nick = $"{baseNick}{counter++}";
+                
+            user = new NexusUser
+            {
+                Nick = nick,
+                UserName = email,
+                Email = email,
+                Name = name,
+                Surname1 = "",
+                PhoneNumber = "",
+                EmailConfirmed = true,
+                ProfileImage = picture,
+                PublicProfile = false
+            };
+            IdentityResult result = await userManager.CreateAsync(user, "Pass-1234");
+            if (result.Succeeded)
+                await userManager.AddToRoleAsync(user, "Basic");
+            return user;
+        }
+
+        private async Task<bool> NickExistsAsync(string nick, string? currentUserId = null) // Comprueba si Existe el Nick del Usuario.
+        {
+            // Si estamos actualizando un usuario existente, excluirlo de la verificación
+            if (currentUserId != null)
+                return await userManager.Users
+                    .AnyAsync(u => u.Nick == nick && u.Id != currentUserId);
+
+            // Para nuevos usuarios, verifica si cualquier usuario tiene ese Nick
+            return await userManager.Users.AnyAsync(u => u.Nick == nick);
         }
 
         private async Task<JwtSecurityToken> GenerateToken(NexusUser user) // Genera el Token, se llama desde varios Métodos.
@@ -222,111 +254,6 @@ namespace NexusAstralis.Controllers
                 claims: claims,
                 expires: DateTime.UtcNow.AddMinutes(120),
                 signingCredentials: creds);
-        }
-
-        [HttpPost("Register")] // Registro en la App.
-        public async Task<IActionResult> Register([FromForm] Register model)
-        {
-            if (await userManager.FindByEmailAsync(model.Email!) != null || await userManager.Users.AnyAsync(u => u.Nick == model.Nick))
-            {
-                return BadRequest("ERROR: Ya Existe un Usuario Registrado con ese E-mail o Nick.");
-            }
-
-            var profileImagePath = await AccountController.SaveProfileImageAsync(model.ProfileImageFile, model.Nick!);
-
-            bool Profile = model.PublicProfile == "1";
-
-            string? NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;
-
-            model.Surname2 = NullIfEmpty(model.Surname2!);
-            model.About = NullIfEmpty(model.About!);
-            model.UserLocation = NullIfEmpty(model.UserLocation!);
-
-            if (model.Bday == default)
-            {
-                model.Bday = DateOnly.FromDateTime(DateTime.Now);
-            }
-
-            var user = new NexusUser
-            {
-                Nick = model.Nick,
-                Name = model.Name,
-                Surname1 = model.Surname1,
-                Surname2 = model.Surname2,
-                UserName = model.Email,
-                Email = model.Email,
-                PhoneNumber = model.PhoneNumber,
-                ProfileImage = profileImagePath,
-                Bday = model.Bday,
-                About = model.About,
-                UserLocation = model.UserLocation,
-                PublicProfile = Profile
-            };
-
-            try
-            {
-                IdentityResult result = await userManager.CreateAsync(user, model.Password!);
-                if (result.Succeeded)
-                {
-                    await userManager.AddToRoleAsync(user, "Basic");
-                    var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
-                    var confirmationLink = Url.Action("ConfirmEmail", "Account", new { userId = user.Id, token }, Request.Scheme);
-
-                    await emailSender.SendEmailAsync(user.Email!, "Confirma tu Registro", $"Por Favor Confirma tu Cuenta Haciendo Click en Este Enlace: <a href='{confirmationLink}'>Confirmar Registro</a>");
-
-                    return Ok("Confirma tu Registro.");
-                }
-            }
-            catch (Exception)
-            {
-                return BadRequest("ERROR: La Contraseña Tiene que Tener al Menos una Letra Mayúscula, una Minúscula, un Dígito, un Caracer Especial y 8 Caracteres de Longitud.");
-            }
-
-            return BadRequest("ERROR: La Contraseña Tiene que Tener al Menos una Letra Mayúscula, una Minúscula, un Dígito, un Caracer Especial y 8 Caracteres de Longitud.");
-        }
-
-        [HttpPost("ForgotPassword")] // Olvido de Contraseña.
-        public async Task<IActionResult> ForgotPassword(ForgotPassword model)
-        {
-            var user = await userManager.FindByEmailAsync(model.Email!);
-            if (user != null)
-            {
-                var token = await userManager.GeneratePasswordResetTokenAsync(user);
-                var resetLink = Url.Action("ResetPassword", "Account", new { email = model.Email, token }, Request.Scheme);
-                await emailSender.SendEmailAsync(model.Email!, "Reestablecer Contraseña", $"Por Favor Reestablece tu Contraseña Haciendo Click en Este Enlace: <a href='{resetLink}'>Reestablecer Contraseña</a>");
-                return Ok("Por Favor Revisa tu E-mail Para Cambiar la Contraseña.");
-            }
-
-            return NotFound("ERROR: No Existe un Usuario Registrado con ese E-mail.");
-        }
-
-        private async Task<NexusUser?> GetUserFromToken() // Obtiene el Usuario Logueado.
-        {
-            var authHeader = HttpContext.Request.Headers.Authorization.FirstOrDefault();
-            if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
-            {
-                return null;
-            }
-
-            var token = authHeader["Bearer ".Length..].Trim();
-
-            try
-            {
-                var tokenHandler = new JwtSecurityTokenHandler();
-                var jwtToken = tokenHandler.ReadJwtToken(token);
-
-                var userNameClaim = jwtToken.Claims.FirstOrDefault(c =>
-                    c.Type == JwtRegisteredClaimNames.Sub ||
-                    c.Type == ClaimTypes.NameIdentifier ||
-                    c.Type == "name" ||
-                    c.Type == "email");
-
-                return userNameClaim == null ? null : await userManager.FindByNameAsync(userNameClaim.Value);
-            }
-            catch
-            {
-                return null;
-            }
         }
     }
 }
