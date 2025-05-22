@@ -462,6 +462,7 @@ namespace NexusAstralis.Controllers
             return Ok(userComments);
         }
 
+        [AllowAnonymous]
         [HttpGet("GetComments/{id}")]
         public async Task<ActionResult<IEnumerable<Comments>>> GetComments(int id)
         {
@@ -470,10 +471,10 @@ namespace NexusAstralis.Controllers
                 .Where(c => c.ConstellationId == id)
                 .ToListAsync();
 
-            if (comments == null || comments.Count == 0)
-            {
-                return NotFound("No hay comentarios para esta constelación.");
-            }
+            //if (comments == null || comments.Count == 0)
+            //{
+            //    return NotFound("No hay comentarios para esta constelación.");
+            //}
 
             return Ok(comments);
         }

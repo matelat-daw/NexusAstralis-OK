@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NexusAstralis.Data;
 using NexusAstralis.Models.Stars;
@@ -71,6 +70,7 @@ namespace NexusAstralis.Controllers
                 proper = s.proper,
                 az = s.az,
                 alt = s.alt,
+                spect = s.spect
             })
             .ToList();
 
