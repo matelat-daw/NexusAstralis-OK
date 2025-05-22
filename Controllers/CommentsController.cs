@@ -1,27 +1,29 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NexusAstralis.Data;
 using NexusAstralis.Models.User;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace NexusAstralis.Controllers
 {
     [Authorize(AuthenticationSchemes = "Bearer")]
     [Route("api/[controller]")]
     [ApiController]
-    public class CommentsController(UserContext context) : ControllerBase
+    public class CommentsController(UserContext context, UserManager<NexusUser> userManager) : ControllerBase
     {
-
         // GET: api/Comments
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Comments>>> GetComments()
+        public async Task<ActionResult<IEnumerable<Comments>>> GetAllComments()
         {
             return await context.Comments.ToListAsync();
         }
 
         // GET: api/Comments/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Comments>> GetComments(int id)
+        [HttpGet("ById/{id}")]
+        public async Task<ActionResult<Comments>> GetCommentsById(int id)
         {
             var comments = await context.Comments.FindAsync(id);
 
@@ -33,10 +35,10 @@ namespace NexusAstralis.Controllers
             return comments;
         }
 
-        [HttpGet("User/{id}")]
-        public async Task<ActionResult<IEnumerable<Comments>>> GetComments(string id)
+        [HttpGet("User/{userId}")]
+        public async Task<ActionResult<IEnumerable<Comments>>> GetCommentsByUser(string userId)
         {
-            var comments = await context.Comments.Where(c => c.UserId == id).ToListAsync();
+            var comments = await context.Comments.Where(c => c.UserId == userId).ToListAsync();
             if (comments == null || comments.Count == 0)
             {
                 return NotFound();
@@ -75,36 +77,57 @@ namespace NexusAstralis.Controllers
             return NoContent();
         }
 
+        private bool CommentsExists(int id)
+        {
+            return context.Comments.Any(e => e.Id == id);
+        }
+
         // POST: api/Comments
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
         public async Task<ActionResult<Comments>> PostComments(Comments comments)
         {
+            var user = await GetUserFromToken();
+            if (user == null)
+            {
+                return NotFound("ERROR: Ese Usuario no Existe.");
+            }
+
+            var UserId = user.Id;
+            comments.UserId = UserId;
             context.Comments.Add(comments);
             await context.SaveChangesAsync();
 
             return CreatedAtAction("GetComments", new { id = comments.Id }, comments);
         }
 
-        // DELETE: api/Comments/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteComments(int id)
+        private async Task<NexusUser?> GetUserFromToken()
         {
-            var comments = await context.Comments.FindAsync(id);
-            if (comments == null)
+            var authHeader = HttpContext.Request.Headers.Authorization.FirstOrDefault();
+            if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
             {
-                return NotFound();
+                return null;
             }
 
-            context.Comments.Remove(comments);
-            await context.SaveChangesAsync();
+            var token = authHeader["Bearer ".Length..].Trim();
 
-            return NoContent();
-        }
+            try
+            {
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var jwtToken = tokenHandler.ReadJwtToken(token);
 
-        private bool CommentsExists(int id)
-        {
-            return context.Comments.Any(e => e.Id == id);
+                var userNameClaim = jwtToken.Claims.FirstOrDefault(c =>
+                    c.Type == JwtRegisteredClaimNames.Sub ||
+                    c.Type == ClaimTypes.NameIdentifier ||
+                    c.Type == "name" ||
+                    c.Type == "email");
+
+                return userNameClaim == null ? null : await userManager.FindByNameAsync(userNameClaim.Value);
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }

@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 
 namespace NexusAstralis.Models.User
@@ -23,9 +22,9 @@ namespace NexusAstralis.Models.User
         [Display(Name = "Localización: ")]
         public string? UserLocation { get; set; }
         [Display(Name = "Perfil Público?: ")]
-        public bool PublicProfile { get; set; } = false;
+        public bool PublicProfile { get; set; }
 
-        public virtual ICollection<Favorites> Favorites { get; set; } = new List<Favorites>(); // Para la Relación con la Tabla de Favoritos.
-        public virtual ICollection<Comments> Comments { get; set; } = new List<Comments>();
+        public virtual ICollection<Favorites>? Favorites { get; set; }
+        public virtual ICollection<Comments>? Comments { get; set; }
     }
 }

@@ -12,7 +12,6 @@ namespace NexusAstralis.Models.User
         public string? Comment { get; set; }
         public string? UserId { get; set; }
         public int ConstellationId { get; set; }
-        // Propiedad de navegación para la relación con NexusUser
         [JsonIgnore]
         public NexusUser? User { get; set; }
     }

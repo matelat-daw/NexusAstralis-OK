@@ -91,7 +91,7 @@ namespace NexusAstralis.Controllers
             }
 
         [HttpGet("GetUserInfo/{nick}")] // Obtiene el Perfil, Los Favoritos y Comentarios de un Usuario por su Nick.
-        public async Task<IActionResult> GetUser(string nick)
+        public async Task<IActionResult> GetUserInfo(string nick)
         {
             var loguedUser = await GetUserFromToken();
             if (loguedUser == null)
@@ -126,9 +126,11 @@ namespace NexusAstralis.Controllers
                 .Select(c => new
                 {
                     c.Id,
+                    c.UserNick,
+                    c.ConstellationName,
+                    c.Comment,
                     c.UserId,
-                    c.ConstellationId,
-                    c.Comment
+                    c.ConstellationId
                 })
                 .ToListAsync();
 
@@ -314,9 +316,10 @@ namespace NexusAstralis.Controllers
                 .Select(c => new
                 {
                     c.Id,
-                    c.UserId,
+                    c.UserNick,
                     c.ConstellationName,
                     c.Comment,
+                    c.UserId,
                     c.ConstellationId
                 })
                 .ToListAsync();
@@ -462,7 +465,6 @@ namespace NexusAstralis.Controllers
             return Ok(userComments);
         }
 
-        [AllowAnonymous]
         [HttpGet("GetComments/{id}")]
         public async Task<ActionResult<IEnumerable<Comments>>> GetComments(int id)
         {
@@ -470,11 +472,6 @@ namespace NexusAstralis.Controllers
             var comments = await context.Comments
                 .Where(c => c.ConstellationId == id)
                 .ToListAsync();
-
-            //if (comments == null || comments.Count == 0)
-            //{
-            //    return NotFound("No hay comentarios para esta constelación.");
-            //}
 
             return Ok(comments);
         }

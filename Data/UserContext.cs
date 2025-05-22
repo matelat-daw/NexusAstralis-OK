@@ -7,8 +7,8 @@ namespace NexusAstralis.Data
 {
     public class UserContext(DbContextOptions<UserContext> options) : IdentityDbContext<NexusUser>(options)
     {
-        public virtual DbSet<Favorites> Favorites { get; set; } = default!;
-        public virtual DbSet<Comments> Comments { get; set; } = default!;
+        public virtual DbSet<Favorites> Favorites { get; set; }
+        public virtual DbSet<Comments> Comments { get; set; }
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);

@@ -14,7 +14,7 @@ namespace NexusAstralis.Models.User
         public string? About { get; set; }
         public string? UserLocation { get; set; }
         public bool PublicProfile { get; set; }
-        public Object? Comments { get; set; } // Lo Defino com Objeto Para no Señirme al Modelo y Poder Agregar más Datos.
-        public virtual ICollection<Constellations> Favorites { get; set; } = new List<Constellations>();
+        public Object? Comments { get; set; }
+        public virtual ICollection<Constellations>? Favorites { get; set; }
     }
 }
