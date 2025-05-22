@@ -176,6 +176,9 @@ namespace NexusAstralis.Controllers
             if (user == null)
                 return NotFound("ERROR: Ese Usuario no Existe.");
 
+            if (await userManager.Users.AnyAsync(u => u.Email == model.Email && u.Id != user.Id))
+                return BadRequest("ERROR: Ya Existe un Usuario Registrado con ese E-mail.");
+
             if (user.Nick != model.Nick && await NickExistsAsync(model.Nick!, user.Id))
                 return BadRequest("ERROR: Ya Existe un Usuario con ese Nick.");
 
