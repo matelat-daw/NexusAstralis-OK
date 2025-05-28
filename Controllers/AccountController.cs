@@ -57,7 +57,7 @@ namespace NexusAstralis.Controllers
             var user = await userTokenService.GetUserFromTokenAsync();
             return user == null
                 ? NotFound("ERROR: Ese Usuario no Existe.")
-                : Ok(userManager.Users);
+                : Ok(user);
         }
 
         [HttpGet("GetUsersLilInfo")] // Poca Info de Todos los Usuario.
@@ -449,7 +449,7 @@ namespace NexusAstralis.Controllers
         public static async Task<string> SaveProfileImageAsync(IFormFile? profileImageFile, string nick)
         {
             if (profileImageFile is null)
-                return "/imgs/default-profile.jpg";
+                return "https://88.24.26.59/imgs/default-profile.jpg";
 
             var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/imgs/profile/" + nick);
             Directory.CreateDirectory(uploadsFolder);
@@ -460,7 +460,7 @@ namespace NexusAstralis.Controllers
             using (var fileStream = new FileStream(filePath, FileMode.Create))
                 await profileImageFile.CopyToAsync(fileStream);
 
-            return $"/imgs/profile/{nick}/{lastName}";
+            return $"https://88.24.26.59/imgs/profile/{nick}/{lastName}";
         } // Guarda la Imagen de Perfil en el Servidor.
     }
 }

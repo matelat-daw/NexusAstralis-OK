@@ -35,15 +35,15 @@ namespace NexusAstralis.Controllers
 
                 var localToken = await GenerateToken(user);
 
-                return Ok(new
-                {
-                    Message = "Inicio de Sesión Exitoso",
-                    Token = new JwtSecurityTokenHandler().WriteToken(localToken),
-                    user.Nick,
-                    user.Email,
-                    user.Name,
-                    user.ProfileImage
-                });
+                return Ok(new JwtSecurityTokenHandler().WriteToken(localToken));
+                //{
+                //    //Message = "Inicio de Sesión Exitoso",
+                //    //Token = new JwtSecurityTokenHandler().WriteToken(localToken),
+                //    //user.Nick,
+                //    //user.Email,
+                //    //user.Name,
+                //    //user.ProfileImage
+                //}
             }
             catch (InvalidJwtException ex)
             {
@@ -95,15 +95,15 @@ namespace NexusAstralis.Controllers
 
                 var localToken = await GenerateToken(user);
 
-                return Ok(new
-                {
-                    message = "Login Exitoso",
-                    Token = new JwtSecurityTokenHandler().WriteToken(localToken),
-                    user.Nick,
-                    user.Email,
-                    user.Name,
-                    user.ProfileImage
-                });
+                return Ok(new JwtSecurityTokenHandler().WriteToken(localToken));
+                //{
+                //    message = "Login Exitoso",
+                //    Token = new JwtSecurityTokenHandler().WriteToken(localToken),
+                //    user.Nick,
+                //    user.Email,
+                //    user.Name,
+                //    user.ProfileImage
+                //});
             }
             catch (Exception ex)
             {
